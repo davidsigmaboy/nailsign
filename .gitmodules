@@ -1,0 +1,3 @@
+[submodule "upstream/SideStore"]
+	path = upstream/SideStore
+	url = https://github.com/SideStore/SideStore

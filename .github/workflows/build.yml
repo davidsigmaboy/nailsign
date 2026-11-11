@@ -4,57 +4,56 @@ on:
   push:
     branches: [main]
     tags: ['v*']
-  pull_request:
   workflow_dispatch:
-
-env:
-  # Подправь под структуру проекта после того, как закинешь туда форк SideStore
-  WORKSPACE: AltStore.xcworkspace
-  SCHEME: AltStore
-  APP_NAME: nailsign
-  XCODE: /Applications/Xcode_15.4.app
 
 jobs:
   build:
-    runs-on: macos-14
+    name: Build nailsign.ipa
+    runs-on: xcode-27   # hosted macOS-образ с Xcode 27 (как у апстрима SideStore)
+
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
+          submodules: recursive   # SideStore + minimuxer + SideSign
+          fetch-depth: 1
 
-      - name: Select Xcode
-        run: sudo xcode-select -s "$XCODE"
+      - name: Install tools
+        run: brew install ldid xcbeautify
 
-      - name: Build (unsigned archive)
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1.6.0
+        with:
+          xcode-version: "27.2"
+
+      - name: Rebrand
+        run: bash scripts/rebrand.sh upstream/SideStore
+
+      - name: Build
+        working-directory: upstream/SideStore
         run: |
           set -o pipefail
-          xcodebuild archive \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -archivePath "build/$APP_NAME.xcarchive" \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            | tee build.log | tail -n 40
+          mkdir -p build/logs
+          make -B build 2>&1 | tee build/logs/build.log | xcbeautify
+          make fakesign
+          make ipa
 
-      - name: Package IPA
-        run: |
-          mkdir -p build/Payload
-          cp -R build/$APP_NAME.xcarchive/Products/Applications/*.app build/Payload/
-          cd build
-          zip -qr "$APP_NAME.ipa" Payload -x "*.DS_Store"
+      - name: Rename IPA
+        run: mv upstream/SideStore/SideStore.ipa nailsign.ipa
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APP_NAME }}-ipa
-          path: build/${{ env.APP_NAME }}.ipa
+          name: nailsign-ipa
+          path: nailsign.ipa
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: upstream/SideStore/build/logs/
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: build/${{ env.APP_NAME }}.ipa
+          files: nailsign.ipa

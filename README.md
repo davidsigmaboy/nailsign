@@ -9,6 +9,14 @@ On-device IPA signer без ПК.
 - **Безлимит приложений:** встроенный [LiveContainer](https://github.com/LiveContainer/LiveContainer), запускает IPA внутри одного подписанного контейнера, поэтому лимит 3 приложения / 10 App ID не мешает.
 - **Старые iOS:** установка через [TrollStore](https://github.com/opa334/TrollStore) (постоянная подпись, без Apple ID).
 
+## Структура репо
+
+- `upstream/SideStore` — сабмодуль с исходниками SideStore (вместе с minimuxer и SideSign).
+- `scripts/rebrand.sh` — в CI меняет bundle ID на `com.nailsign` и имя на nailsign.
+- `.github/workflows/build.yml` — сборка через `make build / fakesign / ipa`.
+
+Клонировать: `git clone --recurse-submodules https://github.com/davidsigmaboy/nailsign`
+
 ## Сборка
 
 GitHub → Actions → **Build nailsign IPA** → Run workflow.
